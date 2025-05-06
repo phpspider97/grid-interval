@@ -225,7 +225,7 @@ async function createOrder(bidType,order_price,currentPrice,status){
             //stop_trigger_method : "mark_price"
         };
 
-        //console.log('order_params : ',currentPrice,  bodyParams)
+        console.log('order_params : ',currentPrice,  bodyParams)
         const signaturePayload = `POST${timestamp}/v2/orders${JSON.stringify(bodyParams)}`;
         const signature = await generateEncryptSignature(signaturePayload);
 
