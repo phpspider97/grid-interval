@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bitcoin Bot Dashboard</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #0d1117; color: #f0f6fc; padding: 1.5rem; }
+    h1 { color: #58a6ff; }
+    .grid-block { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 1rem; margin-top: 0rem; }
+    .log { margin-top: 2rem; max-height: 200px; overflow-y: auto; background: #1f2731; padding: 1rem; border-radius: 8px; }
+    .grid {
+        display: grid;
+        grid-template-columns: auto 1fr; /* two columns: first fixed width, second takes remaining */
+        gap: 1rem;
+        margin-top: 1rem;
+        align-items: start;
+    }
+    .card {
+        background: #161b22;
+        padding: 1rem;
+        border-radius: 10px;
+        border-bottom: 3px solid yellow;
+        margin: 10px;
+    }
+    /* First card (canvas) stays in the first column */
+    .grid .card:first-child {
+        grid-row: 1 / span 6; /* span vertically all other cards */
+    }
+    canvas {
+      border: 0px solid #000;
+      display: block;
+      margin: 30px auto;
+    }
+    .card-width{
+        width:200px
+    }
+  </style>
+</head>
+<body>
+  <h1>💹 Bitcoin Trading Bot ( ID : <strong id="bitcoin_product_id">--</strong> )</h1>
+    <div style="position:absolute;right:46px;top:40px"> 
+        <button id="restartBtn" style="margin-left:10px;margin-top: 18px; padding: 15px 20px; background-color: #444; color: white; border: none; border-radius: 6px; cursor: pointer; width:180px;">
+            🔄 Restart Bot 
+        </button> 
+        <button id="stopBtn" style="margin-left:10px; margin-bottom: 300px; padding: 15px 20px; background-color: crimson; color: white; border: none; border-radius: 6px; cursor: pointer; width:180px;">
+            🛑 Stop Bot
+        </button>
+    </div>
+    <div class="log" id="project_error_message_parent"><strong id="project_error_message">Error:NA</strong></div>
+  <div class="grid">
+    <div class="card" style="background: white;">
+      <canvas id="myCanvas" width="400" height="360"></canvas>
+    </div>
+    
+    <div class="card" style="background: forestgreen;">💰 Border Buy Profit Price: <strong id="border_buy_profit_price">--</strong></div>
+    <div class="card" style="background: forestgreen;">💰 Border Buy Price: <strong id="border_buy_price">--</strong></div>
+    <div class="card" style="background: rgb(246, 236, 30); color: black;">💰 Border Price: <strong id="border_price">--</strong></div>
+    <div class="card" style="background: rgb(236, 39, 17);">💰 Border Sell Price: <strong id="border_sell_price">--</strong></div>
+    <div class="card" style="background: rgb(236, 39, 17);">💰 Border Sell Profit Price: <strong id="border_sell_profit_price">--</strong></div>
+  </div>
+  
+  <div class="grid-block">
+    <div class="card card-width" id="price_parent">💰 Current Price: <strong id="price">--</strong> 
+        <!-- &nbsp;&nbsp; ( Difference : <strong id="price_difference">--</strong> pts ) -->
+    </div>
+    <div class="card card-width">📦 Next Lot: <strong id="lot">--</strong></div>
+    <div class="card card-width">💸 Current Profit: <strong id="profit">--</strong></div>
+    <div class="card card-width" style="background: forestgreen;">🏦 Profit: <strong id="totalProfit">--</strong> /  <strong id="current_balance">--</strong></div> 
+    <div class="card card-width">⚙️ Orders Executed: <strong id="orders">--</strong></div>
+  </div>
+  
+  <div class="log" id="log"></div>
+
+  <script>
+    const socket = io();
+    socket.on("update", data => {
+        document.getElementById("bitcoin_product_id").textContent = data.bitcoin_product_id;
+        document.getElementById("border_price").textContent = data.border_price;
+        document.getElementById("border_buy_price").textContent = data.border_buy_price;
+        document.getElementById("border_buy_profit_price").textContent = data.border_buy_profit_price;
+        document.getElementById("border_sell_price").textContent = data.border_sell_price;
+        document.getElementById("border_sell_profit_price").textContent = data.border_sell_profit_price;
+        document.getElementById("price").textContent = data.price;
+        document.getElementById("lot").textContent = data.lot;
+        document.getElementById("profit").textContent = data.profit;
+        document.getElementById("totalProfit").textContent = data.totalProfit;
+        document.getElementById("orders").textContent = data.ordersExecuted;
+        document.getElementById("current_balance").textContent = data.current_balance; 
+
+        if(data.project_error_message != ''){
+            document.getElementById("project_error_message_parent").style.display = 'block'
+            document.getElementById("project_error_message").textContent = data.project_error_message
+        }else{
+            document.getElementById("project_error_message_parent").style.display = 'none'
+        }
+
+        if(parseInt(data.price)>parseInt(data.border_buy_price)){
+            document.getElementById("price_parent").style.backgroundColor = "forestgreen"
+            //document.getElementById("price_difference").textContent = parseInt(data.price)-parseInt(data.border_buy_price)
+        }else if(parseInt(data.price)<parseInt(data.border_sell_price)){
+            document.getElementById("price_parent").style.backgroundColor = "rgb(236, 39, 17)"
+            //document.getElementById("price_difference").textContent = parseInt(data.border_sell_price)-parseInt(data.price)
+        }else{
+            document.getElementById("price_parent").style.backgroundColor = "#161b22"
+            //data.order_exicuted_at_price = 0
+            //document.getElementById("price_difference").textContent = 0
+        }
+  
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d'); 
+
+        const box = {
+            x: 50,
+            y: 50,
+            width: 300,
+            height: 300
+        };
+
+        // Price range mapping to box 
+        const priceStart = data.border_sell_profit_price;
+        const priceEnd = data.border_buy_profit_price;
+        const priceRange = priceEnd - priceStart;
+        const horizontalLines = [data.border_sell_price, data.border_buy_price];
+        const staticLine = 81100;
+        let currentPrice = data.price;
+        const verticalLineGap = 30; // Gap in pixels
+        const centerX = box.x + box.width / 2;
+        const leftLineX = centerX - verticalLineGap / 2;
+        const rightLineX = centerX + verticalLineGap / 2;
+
+
+        const mapPriceToY = (price) => {
+            const clamped = Math.max(priceStart, Math.min(price, priceEnd));
+            const relative = (clamped - priceStart) / priceRange;
+            return box.y + box.height - (relative * box.height);
+        };
+
+        function getNearestLine(price) {
+            return horizontalLines.reduce((nearest, line) =>
+            Math.abs(price - line) < Math.abs(price - nearest) ? line : nearest
+            );
+        }
+
+        function drawBox() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw outer box
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+            // Draw horizontal reference lines
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 1;
+            horizontalLines.forEach(price => {
+            const y = mapPriceToY(price);
+            ctx.beginPath();
+            ctx.setLineDash([]);
+            ctx.moveTo(box.x, y);
+            ctx.lineTo(box.x + box.width, y);
+            ctx.stroke();
+
+            ctx.fillStyle = 'black';
+            ctx.font = "12px Arial";
+            ctx.fillText(price, box.x + box.width + 5, y + 4);
+            });
+
+            // Red ball (moving point)
+            const y = mapPriceToY(currentPrice);
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(box.x + box.width / 2, y, 6, 0, 2 * Math.PI);
+            ctx.fill();
+
+            ctx.fillStyle = 'black';
+            ctx.fillText(currentPrice, box.x - 50, y + 4);
+
+            // Nearest line visual connection
+            const nearestLine = getNearestLine(currentPrice);
+            const lineY = mapPriceToY(nearestLine);
+            const midY = (y + lineY) / 2;
+            const xMid = box.x + box.width / 2;
+
+            // Dashed line
+            ctx.beginPath();
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.moveTo(xMid, y);
+            ctx.lineTo(xMid, lineY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Orange dot on nearest line
+            ctx.beginPath();
+            ctx.fillStyle = 'black';
+            ctx.arc(xMid, lineY, 4, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Draw difference label beside the dashed line with background
+            const diff = Math.round(Math.abs(currentPrice - nearestLine))
+            const diffText = `${diff > 0 ? '' : ''}${diff}`;
+            ctx.font = "bold 13px Arial";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+
+            const labelX = xMid + 10;  // offset to right of the line
+            const labelY = midY;
+            const padding = 4;
+            const textWidth = ctx.measureText(diffText).width;
+
+            // Background box for better readability
+            ctx.fillStyle = "white";
+            ctx.fillRect(labelX - padding, labelY - 10, textWidth + padding * 2, 20);
+
+            // Draw text on top
+            ctx.fillStyle = 'black';
+            ctx.fillText(diffText, labelX, labelY);
+
+            // Optional: highlight the label
+            // ctx.fillStyle = 'rgba(255, 165, 0, 0.1)';
+            // ctx.fillRect(xMid - 38, midY - 10, 35, 18);
+        }
+        function drawBoxLastOrderPrice(currentPriceUpdate) {
+              
+            // Red ball (moving point)
+            const y = mapPriceToY(currentPriceUpdate);
+            ctx.fillStyle = 'blue';
+            ctx.beginPath(); 
+            ctx.arc(box.x + 200, y, 6, 0, 2 * Math.PI);
+            ctx.fill();
+
+            ctx.fillStyle = 'blue';
+            ctx.fillText(currentPriceUpdate, box.x - 51, y + 4);
+
+            // Nearest line visual connection
+            const nearestLine = getNearestLine(currentPriceUpdate);
+            const lineY = mapPriceToY(nearestLine);
+            const midY = (y + lineY) / 2;
+            const xMid = box.x + box.width / 2;
+
+            // Dashed line
+            ctx.beginPath();
+            ctx.setLineDash([16, 4]);
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 2;
+            ctx.moveTo(xMid+50, y);
+            ctx.lineTo(xMid+50, lineY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Orange dot on nearest line
+            ctx.beginPath();
+            ctx.fillStyle = 'blue';
+            ctx.arc(xMid+50, lineY, 4, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Draw difference label beside the dashed line with background
+            const diff = Math.round(Math.abs(currentPriceUpdate - nearestLine))
+            const diffText = `${diff > 0 ? '' : ''}${diff}`;
+            ctx.font = "bold 11px Arial";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+
+            const labelX = xMid + 60;  // offset to right of the line
+            const labelY = midY;
+            const padding = 4;
+            const textWidth = ctx.measureText(diffText).width;
+
+            // Background box for better readability
+            ctx.fillStyle = "white";
+            ctx.fillRect(labelX - padding, labelY - 10, textWidth + padding * 2, 20);
+ 
+            ctx.fillStyle = 'blue'; 
+            ctx.fillText(diffText, labelX, labelY); 
+        }
+        
+        function updatePrice(newValue) {
+            currentPrice = newValue;
+            drawBox(); 
+            
+        }
+    
+        updatePrice(data.price) 
+        drawBox()
+        if(data.order_exicuted_at_price>0 && data.order_exicuted_at_price != undefined && ( parseInt(data.price)>parseInt(data.border_buy_price)-0 || parseInt(data.price)<parseInt(data.border_sell_price)+0 ) ){
+            drawBoxLastOrderPrice(data.order_exicuted_at_price)
+        }else{
+            drawBoxLastOrderPrice(data.border_price)
+        }
+    
+    });
+
+    socket.on("log", data => {
+      const logBox = document.getElementById("log");
+      const logLine = document.createElement("div");
+      logLine.textContent = `[${data.type.toUpperCase()}] ${data.message || JSON.stringify(data)}`;
+      logBox.prepend(logLine);
+    });
+    document.getElementById("restartBtn").addEventListener("click", () => {
+        socket.emit("restart");
+    });
+    document.getElementById("stopBtn").addEventListener("click", () => {
+        socket.emit("stop");
+    });
+  </script>
+</body>
+</html>
