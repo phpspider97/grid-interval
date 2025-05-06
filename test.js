@@ -1,8 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 require('dotenv').config();
-const WebSocket = require('ws');
-const nodemailer = require('nodemailer');
+const WebSocket = require('ws'); 
 const api_url = process.env.API_URL 
 const socket_url = process.env.API_URL_SOCKET 
 const key = process.env.WEB_KEY
@@ -10,8 +9,7 @@ const secret = process.env.WEB_SECRET
 
 let reconnectInterval = 2000;
 let get_price_range_info = []
-function wsConnect() {
-  // Replace with your actual API credentials
+function wsConnect() { 
   const WEBSOCKET_URL = socket_url;
   const API_KEY = key;
   const API_SECRET = secret;
@@ -45,9 +43,6 @@ function wsConnect() {
       subscribe(ws, 'v2/ticker', ['BTCUSD']);
       subscribe(ws, 'l2_orderbook', ['BTCUSD']); 
     } else {
-        if(total_error_count>1){
-            //console.log('total_error_count___',total_error_count)
-        }
         if(total_error_count>5) { 
             ws.close(1000, 'Too many errors');
         } 
@@ -57,21 +52,19 @@ function wsConnect() {
                 console.log('given_price_range___',given_price_range.length, given_price_range)
                 const side = message.side
                 const order_at = parseInt(message.limit_price)
-  
-                get_price_range_info = given_price_range.find(item => item.price === (side === 'buy' ? order_at + profitMargin : order_at - profitMargin)) 
-
-                if(!get_price_range_info?.fill[side]){
-                    const update_order_price = (side == 'buy')?order_at+profitMargin:order_at-profitMargin 
-                    await createOrder((side == 'buy')?'sell':'buy',update_order_price,message.average_fill_price,true)
-                }
+   
+                const update_order_price = (side == 'buy')?order_at+profitMargin:order_at-profitMargin 
+                await createOrder((side == 'buy')?'sell':'buy',update_order_price,message.average_fill_price,true)              
             }
         }
 
         if(message.type == "v2/ticker"){
             if (message?.spot_price > upperPrice+profitMargin || message?.spot_price < lowerPrice-profitMargin) { 
                 await cancelAllOpenOrder()
-            }
-            //console.log('given_price_range___',given_price_range)
+                setTimeout(async () => {
+                    await getCurrentPriceOfBitcoin()
+                }, 600000);
+            } 
         } 
     } 
   } 
@@ -79,11 +72,7 @@ function wsConnect() {
     await cancelAllOpenOrder()
     console.error('Socket Error:', error.message);
   }
-  async function resetLoop(lot_size){
-    current_lot = lot_size
-    number_of_time_order_executed = 0
-    await init()
-  }
+
   async function onClose(code, reason) {
     console.log(`Socket closed with code: ${code}, reason: ${reason}`)
     
@@ -143,54 +132,13 @@ let upperPrice              =   0
 let gridSpacing             =   0
 let numberOfGrids           =   11
 let profitMargin            =   100
-let total_error_count       =   0
-let current_lower_price     =   0
-let current_upper_price     =   0
+let total_error_count       =   0 
 let number_of_time_order_executed = 0
 
 const roundedToHundred = (price) => Math.round(price / 100) * 100;
-
-function updatePriceSlot(targetPrice,side,status){
-    //console.log('2____',targetPrice,side,status)
-    for (let i = 0; i < given_price_range.length; i++) {
-        if (given_price_range[i].price !== targetPrice) {
-            given_price_range[i].fill.buy = false;
-            given_price_range[i].fill.sell = false;
-        }else{
-            if(side == 'buy'){
-                given_price_range[i].fill.buy = status
-            }else{
-                given_price_range[i].fill.sell = status
-            }
-        }
-    }
-    // targetPrice = Number(targetPrice); // ensure price is numeric
-    // given_price_range.forEach(item => {
-    //     if (item.price === targetPrice) {
-    //         item.fill[side] = status;
-    //     }
-    // });
-}
-function getNearestMultiples(data, targetPrice) {
-    const sorted = data.slice().sort((a, b) => a.price - b.price);
-    let lower = null;
-    let upper = null;
-
-    for (let i = 0; i < sorted.length; i++) {
-        if (sorted[i].price <= targetPrice) {
-            lower = sorted[i];
-        }
-        if (sorted[i].price > targetPrice) {
-            upper = sorted[i];
-            break;
-        }
-    }
-    return { lower, upper };
-}
-
+ 
 async function cancelAllOpenOrder() {
     try {
-      current_running_order = ''
       const timestamp = Math.floor(Date.now() / 1000);
       const bodyParams = {
         close_all_portfolio: true,
@@ -238,9 +186,7 @@ async function getCurrentPriceOfBitcoin() {
                 }
             }); 
         }
-
-        //const {lower, upper} = getNearestMultiples(given_price_range,current_price)
-        //console.log('gridSpacing____',given_price_range)
+ 
         const first_five = given_price_range.slice(0, 5);
         const last_five = given_price_range.slice(-5);
 
@@ -257,7 +203,6 @@ async function getCurrentPriceOfBitcoin() {
         return { message: error.message, status: false };
     }
 }
-
 getCurrentPriceOfBitcoin()
 
 async function generateEncryptSignature(signaturePayload) { 
@@ -272,7 +217,7 @@ async function createOrder(bidType,order_price,currentPrice,status){
         const bodyParams = {
             product_id : bitcoin_product_id,
             product_symbol : "BTCUSD",
-            size : 1, 
+            size : 5, 
             side : bidType,   
             order_type : "limit_order",
             limit_price : order_price,
@@ -290,14 +235,11 @@ async function createOrder(bidType,order_price,currentPrice,status){
             "Content-Type": "application/json",
             "Accept": "application/json",
         };
-        const response = await axios.post(`${api_url}/v2/orders`, bodyParams, { headers });
-        //console.log('response__',response)  
+        const response = await axios.post(`${api_url}/v2/orders`, bodyParams, { headers }); 
         if (response.data.success) { 
-            number_of_time_order_executed++ 
-            updatePriceSlot(order_price,bidType,status)
+            number_of_time_order_executed++  
             return { data: response.data, status: true }
         }
-
         return { message: "Order failed", status: false }
     } catch (error) {
         console.log('create_order_error_message____',error.message)
