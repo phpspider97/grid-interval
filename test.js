@@ -139,29 +139,30 @@ const roundedToHundred = (price) => Math.round(price / 100) * 100;
  
 async function cancelAllOpenOrder() {
     try {
-      const timestamp = Math.floor(Date.now() / 1000);
-      const bodyParams = {
-        close_all_portfolio: true,
-        close_all_isolated: true,
-        user_id: process.env.WEB_USER_ID,
-      }; 
-      const signaturePayload = `POST${timestamp}/v2/positions/close_all${JSON.stringify(bodyParams)}`;
-      const signature = await generateEncryptSignature(signaturePayload);
-  
-      const headers = {
-        "api-key": key,
-        "signature": signature,
-        "timestamp": timestamp,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      }; 
-      const response = await axios.post(`${api_url}/v2/positions/close_all`, bodyParams, { headers });
-      return { data: response.data, status: true };
+        given_price_range = [];
+        const timestamp = Math.floor(Date.now() / 1000);
+        const bodyParams = {
+            close_all_portfolio: true,
+            close_all_isolated: true,
+            user_id: process.env.WEB_USER_ID,
+        }; 
+        const signaturePayload = `POST${timestamp}/v2/positions/close_all${JSON.stringify(bodyParams)}`;
+        const signature = await generateEncryptSignature(signaturePayload);
+
+        const headers = {
+            "api-key": key,
+            "signature": signature,
+            "timestamp": timestamp,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }; 
+        const response = await axios.post(`${api_url}/v2/positions/close_all`, bodyParams, { headers });
+        return { data: response.data, status: true };
     } catch (error) {
-      console.log('error.message___1_',error.response.data)
-      project_error_message = JSON.stringify(error.response.data)
-      botRunning = false
-      return { message: error.message, status: false };
+        console.log('error.message___1_',error.response.data)
+        project_error_message = JSON.stringify(error.response.data)
+        botRunning = false
+        return { message: error.message, status: false };
     }
 }
 
