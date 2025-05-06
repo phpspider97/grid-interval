@@ -218,14 +218,14 @@ async function createOrder(bidType,order_price,currentPrice,status){
         const bodyParams = {
             product_id : bitcoin_product_id,
             product_symbol : "BTCUSD",
-            size : 10, 
+            size : 5, 
             side : bidType,   
             order_type : "limit_order",
             limit_price : order_price,
             //stop_trigger_method : "mark_price"
         };
 
-        console.log('order_params : ',currentPrice,  bodyParams)
+        //console.log('order_params : ',currentPrice,  bodyParams)
         const signaturePayload = `POST${timestamp}/v2/orders${JSON.stringify(bodyParams)}`;
         const signature = await generateEncryptSignature(signaturePayload);
 
