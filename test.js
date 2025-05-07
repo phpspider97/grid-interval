@@ -243,7 +243,7 @@ async function createOrder(bidType,order_price,currentPrice,status){
         }
         return { message: "Order failed", status: false }
     } catch (error) {
-        console.log('create_order_error_message____',error.message)
+        console.log('create_order_error_message____', error.response?.data || error.message)
         total_error_count++ 
         return { message: error?.message, status: false };
     } finally {

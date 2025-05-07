@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Delta Balance Example</title>
+</head>
+<body style="text-align: center;font-size: 20px;"> 
+    <div style="margin-top: 200px;">
+        <pre id="grid" style="padding:20px;background:rgba(255, 166, 0, 0.49)"></pre>  
+        <pre id="option" style="padding:20px;background:rgba(87, 196, 116, 0.49)"></pre>  
+        <pre id="future" style="padding:20px;background:rgba(108, 49, 190, 0.49)"></pre> 
+    </div> 
+  <script>
+    const credentials = [
+        {
+            apiKey : 'nl4vYDiBrTKLN2qPQ3aMzLXHZ0X6M5', // GRID
+            apiSecret : 'HoPlxt0mawNVXym2hzZpKqGdY0JlJrEaQoB3joIQwnr0xafPatPwY0bFNX1A'
+        },
+        {
+            apiKey : 'OcRcN401fgpP2C5wOJcisLN0mUars1', // OPTION
+            apiSecret : 'OO9cAc1IQbPxdjyfPpjdSok2DfkqJc6JqcZYmDzIKvrfkMqaWayly2T41rhp'
+        },
+        {
+            apiKey : 'b2K0rmPLi1ZlnKB8z9xPxKpvWg3WrH', // FUTURE
+            apiSecret : '7MyJm0767kV1Gs4MagQaBpHmXC4HcTByTegEtA4mqLMea0BuLnsEfO0pSC2k'
+        }
+    ]
+
+    async function hmacSha256(secret, message) {
+        const enc = new TextEncoder();
+        const key = await crypto.subtle.importKey(
+            'raw',
+            enc.encode(secret),
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
+        const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+        return Array.from(new Uint8Array(sig))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    }
+    async function getBalances(credential,count) { 
+        const grid = document.getElementById('grid');
+        const option = document.getElementById('option');
+        const future = document.getElementById('future');
+        const baseUrl = 'https://cdn-ind.testnet.deltaex.org';
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const method = 'GET';
+        const endpoint = '/v2/wallet/balances';
+        const payload = timestamp + method + endpoint; 
+        const signaturePayload = `GET${timestamp}/v2/wallet/balances`; 
+        const signature = await hmacSha256(credential.apiSecret, signaturePayload);
+
+        const headers = {
+            'api-key': credential.apiKey,
+            'timestamp': timestamp,
+            'signature': signature,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        };
+
+        try {
+            const res = await fetch(baseUrl + endpoint, { headers });
+            const data = await res.json();
+            let previous_grid = 12287.10
+            let previous_option = 53556.03
+            let previous_future = 17620.18
+             
+            if(count == 1){
+                let current_balance = (data.result[0].balance_inr)
+                grid.innerHTML = 'GRID BALANCE : &nbsp;&nbsp;'+`<b>RS ${previous_grid} </b><sub>(Previous)</sub> ====> <b>RS `+current_balance+" </b><sub>(Current)</sub>" + " ====> <b>RS "+ (current_balance-previous_grid).toFixed(2) + "</b><sub>(PnL)</sub>"
+            }
+            if(count == 2){
+                let current_balance = (data.result[0].balance_inr)
+                option.innerHTML = 'OPTION BALANCE : '+`<b>RS ${previous_option} </b><sub>(Previous)</sub> ====> <b>RS `+current_balance+" </b><sub>(Current)</sub>"+ " ====> <b>RS "+ (current_balance-previous_option).toFixed(2) + " </b><sub>(PnL)</sub>"
+            }
+            if(count == 3){
+                let current_balance = (data.result[0].balance_inr)
+                future.innerHTML = '&nbsp;&nbsp; FUTURE BALANCE : '+`<b>RS ${previous_future} </b><sub>(Previous)</sub> ====> <b>RS `+current_balance+" </b><sub>(Current)</sub>"+ " ====> <b>RS "+ (current_balance-previous_future).toFixed(2) + " </b><sub>(PnL)</sub>"
+            }
+        } catch (err) {
+            output.textContent = 'Error: ' + err;
+        }
+    } 
+    credentials.forEach(async (data,key)=>{
+        await getBalances(data,key+1)
+    }) 
+    setInterval(() => {
+        location.reload();
+    }, 2 * 60 * 1000);
+  </script>
+</body>
+</html>
