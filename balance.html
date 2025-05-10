@@ -5,24 +5,25 @@
 </head>
 <body style="text-align: center;font-size: 20px;"> 
     <div style="margin-top: 200px;">
+        <pre id="output" style="padding:20px;background:rgba(175, 10, 10, 0.49)"></pre>  
         <pre id="grid" style="padding:20px;background:rgba(255, 166, 0, 0.49)"></pre>  
         <pre id="option" style="padding:20px;background:rgba(87, 196, 116, 0.49)"></pre>  
         <pre id="future" style="padding:20px;background:rgba(108, 49, 190, 0.49)"></pre> 
     </div> 
   <script>
     const credentials = [
-        {
-            apiKey : 'nl4vYDiBrTKLN2qPQ3aMzLXHZ0X6M5', // GRID
-            apiSecret : 'HoPlxt0mawNVXym2hzZpKqGdY0JlJrEaQoB3joIQwnr0xafPatPwY0bFNX1A'
-        },
+        // {
+        //     apiKey : 'nl4vYDiBrTKLN2qPQ3aMzLXHZ0X6M5', // GRID
+        //     apiSecret : 'HoPlxt0mawNVXym2hzZpKqGdY0JlJrEaQoB3joIQwnr0xafPatPwY0bFNX1A'
+        // },
         {
             apiKey : 'OcRcN401fgpP2C5wOJcisLN0mUars1', // OPTION
             apiSecret : 'OO9cAc1IQbPxdjyfPpjdSok2DfkqJc6JqcZYmDzIKvrfkMqaWayly2T41rhp'
         },
-        {
-            apiKey : 'b2K0rmPLi1ZlnKB8z9xPxKpvWg3WrH', // FUTURE
-            apiSecret : '7MyJm0767kV1Gs4MagQaBpHmXC4HcTByTegEtA4mqLMea0BuLnsEfO0pSC2k'
-        }
+        // {
+        //     apiKey : 'b2K0rmPLi1ZlnKB8z9xPxKpvWg3WrH', // FUTURE
+        //     apiSecret : '7MyJm0767kV1Gs4MagQaBpHmXC4HcTByTegEtA4mqLMea0BuLnsEfO0pSC2k'
+        // }
     ]
 
     async function hmacSha256(secret, message) {
@@ -62,15 +63,15 @@
         try {
             const res = await fetch(baseUrl + endpoint, { headers });
             const data = await res.json();
-            let previous_grid = 12287.10
-            let previous_option = 53556.03
-            let previous_future = 17620.18
+            let previous_grid = 11675.07
+            let previous_option = 52269.61
+            let previous_future = 17237.57
              
-            if(count == 1){
+            if(count == 10){
                 let current_balance = (data.result[0].balance_inr)
                 grid.innerHTML = 'GRID BALANCE : &nbsp;&nbsp;'+`<b>RS ${previous_grid} </b><sub>(Previous)</sub> ====> <b>RS `+current_balance+" </b><sub>(Current)</sub>" + " ====> <b>RS "+ (current_balance-previous_grid).toFixed(2) + "</b><sub>(PnL)</sub>"
             }
-            if(count == 2){
+            if(count == 1){
                 let current_balance = (data.result[0].balance_inr)
                 option.innerHTML = 'OPTION BALANCE : '+`<b>RS ${previous_option} </b><sub>(Previous)</sub> ====> <b>RS `+current_balance+" </b><sub>(Current)</sub>"+ " ====> <b>RS "+ (current_balance-previous_option).toFixed(2) + " </b><sub>(PnL)</sub>"
             }
